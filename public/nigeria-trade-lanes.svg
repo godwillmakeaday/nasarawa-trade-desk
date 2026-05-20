@@ -1,0 +1,53 @@
+<svg width="960" height="640" viewBox="0 0 960 640" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Nasarawa procurement trade lanes</title>
+  <desc id="desc">A stylized map visual showing procurement movement from Nasarawa markets to Nigerian regions.</desc>
+  <rect width="960" height="640" rx="32" fill="#F7F8FB"/>
+  <path d="M213 219C247 152 343 106 437 126C511 142 555 89 634 112C728 140 774 225 750 317C733 385 774 459 721 513C653 582 547 538 470 554C382 572 297 545 247 473C198 403 177 291 213 219Z" fill="#DFF7ED"/>
+  <path d="M243 249C275 187 361 156 444 171C512 183 560 137 625 162C695 188 723 247 708 314C692 385 735 431 688 474C633 524 548 486 477 503C394 523 329 491 286 431C245 372 214 306 243 249Z" fill="#FFFFFF" stroke="#D7DCE5" stroke-width="3"/>
+  <circle cx="515" cy="315" r="15" fill="#0F8F63"/>
+  <circle cx="515" cy="315" r="31" stroke="#0F8F63" stroke-opacity=".22" stroke-width="12"/>
+  <text x="545" y="311" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#151922">Nasarawa</text>
+  <text x="545" y="337" font-family="Inter, Arial, sans-serif" font-size="15" fill="#637083">Market hub</text>
+  <g stroke-linecap="round" stroke-width="7">
+    <path d="M515 315C455 266 398 233 326 213" stroke="#2457D6"/>
+    <path d="M515 315C602 299 649 276 708 236" stroke="#D98C17"/>
+    <path d="M515 315C483 385 438 444 356 492" stroke="#BE4F3A"/>
+    <path d="M515 315C602 374 652 430 696 505" stroke="#0F8F63"/>
+  </g>
+  <g fill="#151922" font-family="Inter, Arial, sans-serif">
+    <g>
+      <circle cx="326" cy="213" r="11" fill="#2457D6"/>
+      <text x="257" y="195" font-size="17" font-weight="700">North West</text>
+      <text x="247" y="218" font-size="13" fill="#637083">bulk grains</text>
+    </g>
+    <g>
+      <circle cx="708" cy="236" r="11" fill="#D98C17"/>
+      <text x="726" y="230" font-size="17" font-weight="700">North East</text>
+      <text x="726" y="252" font-size="13" fill="#637083">retail supply</text>
+    </g>
+    <g>
+      <circle cx="356" cy="492" r="11" fill="#BE4F3A"/>
+      <text x="220" y="493" font-size="17" font-weight="700">South West</text>
+      <text x="227" y="515" font-size="13" fill="#637083">market delivery</text>
+    </g>
+    <g>
+      <circle cx="696" cy="505" r="11" fill="#0F8F63"/>
+      <text x="716" y="502" font-size="17" font-weight="700">South East</text>
+      <text x="716" y="524" font-size="13" fill="#637083">tracked orders</text>
+    </g>
+  </g>
+  <g transform="translate(70 70)">
+    <rect width="192" height="124" rx="18" fill="#151922"/>
+    <rect x="18" y="22" width="66" height="48" rx="10" fill="#0F8F63"/>
+    <rect x="98" y="22" width="70" height="13" rx="6" fill="#FFFFFF" opacity=".92"/>
+    <rect x="98" y="46" width="46" height="10" rx="5" fill="#FFFFFF" opacity=".45"/>
+    <rect x="18" y="88" width="150" height="12" rx="6" fill="#FFFFFF" opacity=".72"/>
+  </g>
+  <g transform="translate(696 88)">
+    <rect width="190" height="118" rx="18" fill="#FFFFFF" stroke="#D7DCE5" stroke-width="2"/>
+    <rect x="20" y="21" width="58" height="58" rx="12" fill="#FFE8BE"/>
+    <path d="M98 29H159" stroke="#151922" stroke-width="10" stroke-linecap="round"/>
+    <path d="M98 55H148" stroke="#637083" stroke-width="8" stroke-linecap="round"/>
+    <path d="M98 80H132" stroke="#0F8F63" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>
