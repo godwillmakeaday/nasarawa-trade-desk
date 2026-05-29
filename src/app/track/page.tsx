@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarClock, PackageCheck, Search, Truck } from "lucide-react";
+import { CalendarClock, PackageCheck, Search, Truck } from "lucide-react";
 import { InspectionEvidence } from "@/components/dashboard/inspection-evidence";
 import { InspectionEvidenceGallery } from "@/components/dashboard/inspection-evidence-gallery";
 import { ProofOfDeliveryUploads } from "@/components/dashboard/proof-of-delivery-uploads";
@@ -9,6 +9,8 @@ import { TransportVisibility } from "@/components/dashboard/transport-visibility
 import { WhatsappCommunicationHub } from "@/components/dashboard/whatsapp-communication-hub";
 import { WhatsappEscalation } from "@/components/dashboard/whatsapp-escalation";
 import { SiteHeader } from "@/components/site/header";
+import { orders, trackingTimeline } from "@/data/mock";
+import { databaseSetupHint, isDatabaseConfigured, logDatabaseError } from "@/lib/database-status";
 import { formatCurrency } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { humanizeStatus } from "@/lib/workflow";
@@ -23,6 +25,10 @@ type TrackPageProps = {
 };
 
 async function getTrackedRequest(requestNumber?: string) {
+  if (!isDatabaseConfigured()) {
+    return { request: null, error: null, demoMode: true };
+  }
+
   try {
     const request = requestNumber
       ? await prisma.procurementRequest.findUnique({
@@ -34,11 +40,13 @@ async function getTrackedRequest(requestNumber?: string) {
           include: trackedRequestInclude
         });
 
-    return { request, error: null };
+    return { request, error: null, demoMode: false };
   } catch (error) {
+    logDatabaseError("track-page", error);
     return {
       request: null,
-      error: error instanceof Error ? error.message : "Unable to load tracking data."
+      error: "Live tracking is temporarily unavailable.",
+      demoMode: true
     };
   }
 }
@@ -133,8 +141,9 @@ function buildTimeline(request: NonNullable<Awaited<ReturnType<typeof getTracked
 export default async function TrackPage({ searchParams }: TrackPageProps) {
   const params = await searchParams;
   const requestNumber = params?.requestNumber?.trim();
-  const { request, error } = await getTrackedRequest(requestNumber);
-  const selectedNumber = requestNumber || request?.requestNumber || "";
+  const { request, error, demoMode } = await getTrackedRequest(requestNumber);
+  const demoOrder = orders[0];
+  const selectedNumber = requestNumber || request?.requestNumber || demoOrder.requestNumber;
   const quote = request?.quotations[0];
 
   return (
@@ -145,8 +154,8 @@ export default async function TrackPage({ searchParams }: TrackPageProps) {
           <Truck className="h-7 w-7 text-market-blue" aria-hidden="true" />
           <h1 className="mt-4 text-3xl font-black text-ink">Track procurement and delivery</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-            Tracking now reads from PostgreSQL through Prisma, including request status, quote,
-            payment, shipment, audit, dispute, and proof-of-delivery records.
+            Enter your request number to see procurement status, inspection updates, transport
+            movement, and delivery evidence.
           </p>
 
           <form className="mt-6 flex flex-col gap-3 sm:flex-row" method="get">
@@ -165,22 +174,60 @@ export default async function TrackPage({ searchParams }: TrackPageProps) {
           </form>
         </section>
 
-        {error ? (
-          <section className="mt-6 rounded-lg bg-rose-50 p-5 text-sm font-semibold leading-6 text-rose-700">
-            <div className="flex gap-2">
-              <AlertCircle className="mt-0.5 h-5 w-5 flex-none" aria-hidden="true" />
-              <p>Database error: {error}. Confirm `DATABASE_URL`, push the Prisma schema, and seed demo data.</p>
-            </div>
+        {demoMode ? (
+          <section className="mt-6 rounded-lg bg-amber-50 p-5 text-sm font-semibold leading-6 text-amber-800">
+            {error ? `${error} ` : ""}
+            {databaseSetupHint()} Showing a sample tracking record for now.
           </section>
         ) : null}
 
-        {!error && !request ? (
+        {!demoMode && !request ? (
           <section className="mt-6 rounded-lg bg-zinc-50 p-5 text-sm leading-6 text-zinc-600">
-            No request found. Submit a procurement request or search for a seeded request number.
+            No order was found for that request number. Check the number and try again, or create a new procurement request.
           </section>
         ) : null}
 
-        {request ? (
+        {demoMode ? (
+          <>
+            <section className="mt-6 grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+              <aside className="rounded-lg border border-black/5 bg-white p-5 shadow-line">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-market-green">Demo order</p>
+                    <h2 className="mt-3 text-xl font-black text-ink">{demoOrder.requestNumber}</h2>
+                  </div>
+                  <StatusPill status={demoOrder.status} />
+                </div>
+                <dl className="mt-5 grid gap-4 text-sm">
+                  <div>
+                    <dt className="font-bold text-zinc-500">Product</dt>
+                    <dd className="mt-1 font-black text-ink">{demoOrder.title}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-zinc-500">Buyer</dt>
+                    <dd className="mt-1 font-black text-ink">{demoOrder.customer}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-zinc-500">Market</dt>
+                    <dd className="mt-1 font-black text-ink">{demoOrder.market}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-zinc-500">Destination</dt>
+                    <dd className="mt-1 font-black text-ink">{demoOrder.destination}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold text-zinc-500">Estimated value</dt>
+                    <dd className="mt-1 font-black text-ink">{formatCurrency(demoOrder.amount)}</dd>
+                  </div>
+                </dl>
+              </aside>
+
+              <Timeline events={trackingTimeline} />
+            </section>
+          </>
+        ) : null}
+
+        {!demoMode && request ? (
           <>
             <section className="mt-6 grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
               <aside className="rounded-lg border border-black/5 bg-white p-5 shadow-line">

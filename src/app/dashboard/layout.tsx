@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
+import type { Metadata } from "next";
 import {
   ClipboardList,
   FileClock,
@@ -21,6 +22,13 @@ const navItems: Array<{ href: Route; label: string; icon: typeof LayoutDashboard
   { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck },
   { href: "/dashboard/audit", label: "Audit", icon: FileClock }
 ];
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false
+  }
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (

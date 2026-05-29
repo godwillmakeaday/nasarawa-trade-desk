@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, LockKeyhole, MapPinned, ReceiptText, Route, ShieldCheck } from "lucide-react";
-import { HeroRequestPanel } from "@/components/site/hero-request-panel";
 import { SiteHeader } from "@/components/site/header";
 import { TradeLaneVisual } from "@/components/site/trade-lane-visual";
 import { marketNodes } from "@/data/mock";
-import { workflowStages } from "@/lib/workflow";
 
 const trustItems = [
   {
@@ -29,7 +27,7 @@ export default function HomePage() {
     <>
       <SiteHeader />
       <main>
-        <section className="mx-auto grid max-w-7xl gap-8 px-4 pb-14 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:px-8 lg:pb-20 lg:pt-14">
+        <section className="mx-auto grid max-w-7xl gap-8 px-4 pb-14 pt-10 sm:px-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:px-8 lg:pb-20 lg:pt-14">
           <div className="flex min-w-0 flex-col justify-between gap-8">
             <div>
               <div className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.2em] text-market-green shadow-line">
@@ -60,34 +58,20 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {trustItems.map((item) => (
-                <article className="rounded-lg border border-black/5 bg-white p-5 shadow-line" key={item.title}>
-                  <item.icon className="h-5 w-5 text-market-blue" aria-hidden="true" />
-                  <h2 className="mt-4 text-sm font-black text-ink">{item.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-zinc-600">{item.body}</p>
-                </article>
-              ))}
-            </div>
           </div>
 
-          <HeroRequestPanel />
+          <TradeLaneVisual />
         </section>
 
         <section className="border-y border-black/5 bg-white/70">
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[440px_minmax(0,1fr)] lg:px-8">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-market-clay">
-                Live trade lanes
-              </p>
-              <h2 className="mt-3 text-3xl font-black text-ink">From market sourcing to doorstep delivery.</h2>
-              <p className="mt-4 text-base leading-7 text-zinc-600">
-                The same order record moves across procurement, finance, dispatch, logistics, and
-                dispute desks, so buyers always know what changed and who changed it.
-              </p>
-            </div>
-            <TradeLaneVisual />
+          <div className="mx-auto grid max-w-7xl gap-3 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+            {trustItems.map((item) => (
+              <article className="rounded-lg border border-black/5 bg-white p-5 shadow-line" key={item.title}>
+                <item.icon className="h-5 w-5 text-market-blue" aria-hidden="true" />
+                <h2 className="mt-4 text-sm font-black text-ink">{item.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-zinc-600">{item.body}</p>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -119,32 +103,6 @@ export default function HomePage() {
                 </p>
                 <p className="mt-3 text-sm leading-6 text-zinc-600">{node.role}</p>
                 <p className="mt-3 text-xs font-black text-market-blue">{node.signal}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-market-green">
-                Order workflow
-              </p>
-              <h2 className="mt-3 text-3xl font-black text-ink">A clean operational path.</h2>
-            </div>
-            <Link className="text-sm font-black text-market-blue hover:text-blue-700" href="/dashboard/orders">
-              View dashboard layout
-            </Link>
-          </div>
-
-          <div className="mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {workflowStages.slice(0, 10).map((stage, index) => (
-              <article className="rounded-lg border border-black/5 bg-white p-4 shadow-line" key={stage.status}>
-                <span className="grid h-8 w-8 place-items-center rounded-md bg-ink text-sm font-black text-white">
-                  {index + 1}
-                </span>
-                <h3 className="mt-4 text-sm font-black text-ink">{stage.label}</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-600">{stage.description}</p>
               </article>
             ))}
           </div>

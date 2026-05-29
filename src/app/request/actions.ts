@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
+import { isDatabaseConfigured, logDatabaseError } from "@/lib/database-status";
 import { prisma } from "@/lib/prisma";
 import { procurementRequestSchema } from "@/lib/validators/procurement-request";
 
@@ -14,6 +15,8 @@ export type RequestActionState = {
 };
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+
+class SafeActionError extends Error {}
 
 function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 120);
@@ -53,7 +56,7 @@ async function saveReferenceImages(files: File[], requestNumber: string) {
   const uploadableFiles = files.filter((file) => file.size > 0);
 
   if (uploadableFiles.length > 0 && process.env.VERCEL === "1") {
-    throw new Error(
+    throw new SafeActionError(
       "Production image uploads need persistent object storage. Configure an upload adapter before accepting reference images on Vercel."
     );
   }
@@ -63,11 +66,11 @@ async function saveReferenceImages(files: File[], requestNumber: string) {
 
   for (const file of uploadableFiles) {
     if (!file.type.startsWith("image/")) {
-      throw new Error(`${file.name} is not an image file.`);
+      throw new SafeActionError(`${file.name} is not an image file.`);
     }
 
     if (file.size > MAX_IMAGE_BYTES) {
-      throw new Error(`${file.name} is larger than 12MB.`);
+      throw new SafeActionError(`${file.name} is larger than 12MB.`);
     }
 
     const safeName = `${Date.now()}-${sanitizeFileName(file.name)}`;
@@ -89,6 +92,14 @@ export async function createProcurementRequest(
   _previousState: RequestActionState,
   formData: FormData
 ): Promise<RequestActionState> {
+  if (!isDatabaseConfigured()) {
+    return {
+      ok: false,
+      message:
+        "Live procurement submissions are not enabled yet. You can still review the request flow, but the operations desk must connect the production database before accepting orders."
+    };
+  }
+
   const raw = Object.fromEntries(formData.entries());
   const parsed = procurementRequestSchema.safeParse(raw);
 
@@ -189,9 +200,19 @@ export async function createProcurementRequest(
       });
     });
   } catch (error) {
+    if (error instanceof SafeActionError) {
+      return {
+        ok: false,
+        message: error.message
+      };
+    }
+
+    logDatabaseError("create-procurement-request", error);
+
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Unable to submit request. Please try again."
+      message:
+        "Unable to submit this request right now. Please try again or contact the procurement desk if the issue continues."
     };
   }
 

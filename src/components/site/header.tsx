@@ -4,8 +4,7 @@ import { PackageCheck, ShieldCheck } from "lucide-react";
 
 const navItems: Array<{ href: Route; label: string }> = [
   { href: "/request", label: "Request" },
-  { href: "/track", label: "Track" },
-  { href: "/dashboard", label: "Dashboard" }
+  { href: "/track", label: "Track" }
 ];
 
 export function SiteHeader() {
@@ -45,10 +44,10 @@ export function SiteHeader() {
           </Link>
           <Link
             className="inline-flex items-center gap-2 rounded-md bg-market-green px-4 py-2 text-sm font-black text-white shadow-line transition hover:bg-emerald-700 focus-ring"
-            href="/register"
+            href="/request"
           >
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Start
+            Request quote
           </Link>
         </div>
       </div>

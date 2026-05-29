@@ -1,5 +1,7 @@
 import { CalendarClock, Database, Images, RefreshCw } from "lucide-react";
 import { updateProcurementRequestStatus } from "@/app/dashboard/actions";
+import { orders } from "@/data/mock";
+import { databaseSetupHint, isDatabaseConfigured, logDatabaseError } from "@/lib/database-status";
 import { formatCurrency } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { humanizeStatus, statusTone, workflowTransitions } from "@/lib/workflow";
@@ -21,6 +23,10 @@ const allStatuses: WorkflowStatus[] = [
 ];
 
 async function getLiveRequests() {
+  if (!isDatabaseConfigured()) {
+    return { requests: [], error: null, demoMode: true };
+  }
+
   try {
     const requests = await prisma.procurementRequest.findMany({
       orderBy: { createdAt: "desc" },
@@ -45,11 +51,13 @@ async function getLiveRequests() {
       }
     });
 
-    return { requests, error: null };
+    return { requests, error: null, demoMode: false };
   } catch (error) {
+    logDatabaseError("live-procurement-requests", error);
     return {
       requests: [],
-      error: error instanceof Error ? error.message : "Unable to load database requests."
+      error: "Live requests are temporarily unavailable.",
+      demoMode: true
     };
   }
 }
@@ -60,7 +68,7 @@ function statusOptions(status: WorkflowStatus) {
 }
 
 export async function LiveProcurementRequests() {
-  const { requests, error } = await getLiveRequests();
+  const { requests, error, demoMode } = await getLiveRequests();
 
   return (
     <section className="rounded-lg border border-black/5 bg-white p-5 shadow-line">
@@ -74,8 +82,8 @@ export async function LiveProcurementRequests() {
           </div>
           <h2 className="mt-2 text-2xl font-black text-ink">Submitted procurement requests</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-            Requests submitted from the customer form are loaded from PostgreSQL through Prisma.
-            Admins can move them through controlled operational states.
+            Requests are loaded from PostgreSQL through Prisma when `DATABASE_URL` is configured.
+            Admins can move live requests through controlled operational states.
           </p>
         </div>
         <span className="inline-flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-black text-market-blue">
@@ -84,19 +92,60 @@ export async function LiveProcurementRequests() {
         </span>
       </div>
 
-      {error ? (
-        <div className="mt-5 rounded-lg bg-rose-50 p-4 text-sm font-semibold leading-6 text-rose-700">
-          Database error: {error}. Check `DATABASE_URL`, run `prisma db push`, then seed or submit a request.
+      {demoMode ? (
+        <div className="mt-5 rounded-lg bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
+          {error ? `${error} ` : ""}
+          {databaseSetupHint()} Configure `DATABASE_URL` in Vercel Project Settings for live operations.
         </div>
       ) : null}
 
-      {!error && requests.length === 0 ? (
+      {!demoMode && requests.length === 0 ? (
         <div className="mt-5 rounded-lg bg-zinc-50 p-5 text-sm leading-6 text-zinc-600">
           No live requests yet. Submit one from the request page or run the seed command.
         </div>
       ) : null}
 
-      {requests.length > 0 ? (
+      {demoMode ? (
+        <div className="mt-5 overflow-hidden rounded-lg border border-zinc-100">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-zinc-100 text-left text-sm">
+              <thead className="bg-zinc-50 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                <tr>
+                  <th className="px-4 py-4">Demo Request</th>
+                  <th className="px-4 py-4">Buyer</th>
+                  <th className="px-4 py-4">Market</th>
+                  <th className="px-4 py-4">Value</th>
+                  <th className="px-4 py-4">Status</th>
+                  <th className="px-4 py-4">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {orders.map((order) => (
+                  <tr className="align-top" key={order.id}>
+                    <td className="px-4 py-4">
+                      <p className="font-black text-ink">{order.requestNumber}</p>
+                      <p className="mt-1 max-w-64 text-zinc-600">{order.title}</p>
+                    </td>
+                    <td className="px-4 py-4 font-semibold text-zinc-700">{order.customer}</td>
+                    <td className="px-4 py-4 text-zinc-600">{order.market}</td>
+                    <td className="px-4 py-4 font-semibold text-zinc-700">{formatCurrency(order.amount)}</td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex rounded-md px-2.5 py-1 text-xs font-black ring-1 ${statusTone[order.status]}`}>
+                        {humanizeStatus(order.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 text-xs font-bold text-zinc-500">
+                      Connect PostgreSQL to update live statuses.
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {!demoMode && requests.length > 0 ? (
         <div className="mt-5 overflow-hidden rounded-lg border border-zinc-100">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-zinc-100 text-left text-sm">

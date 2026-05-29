@@ -44,7 +44,7 @@ export function ProcurementRequestForm() {
   const [state, formAction] = useActionState(createProcurementRequest, initialState);
 
   return (
-    <form action={formAction} className="mt-8 grid gap-5" encType="multipart/form-data">
+    <form action={formAction} className="mt-8 grid gap-5">
       {state.message ? (
         <div
           className={`rounded-lg p-4 text-sm font-semibold ${
