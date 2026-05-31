@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requestStatusSchema } from "@/lib/validators/procurement-request";
-import { canTransition, humanizeStatus } from "@/lib/workflow";
+import { evaluateTransition, getTransitionControl } from "@/lib/workflow";
+import { resolveActorRole } from "@/lib/auth";
 import type { WorkflowStatus } from "@/types";
 
 export async function updateProcurementRequestStatus(formData: FormData) {
@@ -15,6 +16,8 @@ export async function updateProcurementRequestStatus(formData: FormData) {
   if (!parsed.success) {
     throw new Error("Invalid status update.");
   }
+
+  const role = await resolveActorRole();
 
   const request = await prisma.procurementRequest.findUnique({
     where: { id: parsed.data.requestId },
@@ -32,13 +35,29 @@ export async function updateProcurementRequestStatus(formData: FormData) {
 
   const currentStatus = request.status as WorkflowStatus;
   const nextStatus = parsed.data.status as WorkflowStatus;
-  const isSameStatus = currentStatus === nextStatus;
-  const isAllowedTransition = canTransition(currentStatus, nextStatus);
 
-  if (!isSameStatus && !isAllowedTransition) {
-    throw new Error(
-      `Cannot move ${humanizeStatus(currentStatus)} directly to ${humanizeStatus(nextStatus)}.`
-    );
+  // A no-op status save is allowed; any real move must satisfy the state
+  // machine plus the role and evidence gate for that transition.
+  if (currentStatus !== nextStatus) {
+    const control = getTransitionControl(currentStatus, nextStatus);
+
+    // The officer attests that the operational evidence this transition
+    // requires is in hand. Guarded moves must carry that attestation; the
+    // audit trail then records exactly what was attested to.
+    const attested = formData.get("evidenceAttested") === "on";
+    const providedEvidence =
+      control && attested ? control.requiredEvidence : [];
+
+    const evaluation = evaluateTransition({
+      from: currentStatus,
+      to: nextStatus,
+      role,
+      providedEvidence
+    });
+
+    if (!evaluation.ok) {
+      throw new Error(evaluation.reason);
+    }
   }
 
   await prisma.$transaction([

@@ -201,25 +201,31 @@ export async function LiveProcurementRequests() {
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <form action={updateProcurementRequestStatus} className="flex min-w-56 gap-2">
-                          <input name="requestId" type="hidden" value={request.id} />
-                          <select
-                            className="w-full rounded-md border border-zinc-200 bg-white px-2 py-2 text-xs font-bold text-zinc-700 outline-none focus:border-market-green focus:ring-2 focus:ring-market-green/15"
-                            name="status"
-                            defaultValue={status}
-                          >
-                            {statusOptions(status).map((option) => (
-                              <option key={option} value={option}>
-                                {humanizeStatus(option)}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            className="focus-ring rounded-md bg-ink px-3 py-2 text-xs font-black text-white"
-                            type="submit"
-                          >
-                            Save
-                          </button>
+                        <form action={updateProcurementRequestStatus} className="flex min-w-56 flex-col gap-2">
+                          <div className="flex gap-2">
+                            <input name="requestId" type="hidden" value={request.id} />
+                            <select
+                              className="w-full rounded-md border border-zinc-200 bg-white px-2 py-2 text-xs font-bold text-zinc-700 outline-none focus:border-market-green focus:ring-2 focus:ring-market-green/15"
+                              name="status"
+                              defaultValue={status}
+                            >
+                              {statusOptions(status).map((option) => (
+                                <option key={option} value={option}>
+                                  {humanizeStatus(option)}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className="focus-ring rounded-md bg-ink px-3 py-2 text-xs font-black text-white"
+                              type="submit"
+                            >
+                              Save
+                            </button>
+                          </div>
+                          <label className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-500">
+                            <input name="evidenceAttested" type="checkbox" className="h-3.5 w-3.5" />
+                            Required evidence attached
+                          </label>
                         </form>
                       </td>
                     </tr>

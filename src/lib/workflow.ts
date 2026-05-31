@@ -165,6 +165,65 @@ export function getTransitionControl(from: WorkflowStatus, to: WorkflowStatus) {
   return transitionControls.find((control) => control.from === from && control.to === to);
 }
 
+export type TransitionEvaluation =
+  | { ok: true; control?: TransitionControl }
+  | { ok: false; reason: string };
+
+/**
+ * Authoritatively decides whether a workflow transition may proceed. Combines
+ * the three invariants a state change must satisfy: the move is allowed by the
+ * state machine, the actor's role is permitted, and every required piece of
+ * evidence is present. Pure and side-effect free so it can be unit-tested and
+ * reused by any Server Action before writing to the database.
+ *
+ * `providedEvidence` is matched case-insensitively against the control's
+ * `requiredEvidence` keys; callers pass the evidence keys they have collected.
+ */
+export function evaluateTransition(input: {
+  from: WorkflowStatus;
+  to: WorkflowStatus;
+  role: UserRole;
+  providedEvidence?: string[];
+}): TransitionEvaluation {
+  const { from, to, role, providedEvidence = [] } = input;
+
+  if (!canTransition(from, to)) {
+    return {
+      ok: false,
+      reason: `Cannot move ${humanizeStatus(from)} to ${humanizeStatus(to)}.`
+    };
+  }
+
+  const control = getTransitionControl(from, to);
+
+  // Transitions without a control (e.g. CANCELLED branches) are governed by the
+  // transition map alone and carry no role/evidence gate.
+  if (!control) {
+    return { ok: true };
+  }
+
+  if (!control.allowedRoles.includes(role)) {
+    return {
+      ok: false,
+      reason: `${role} is not allowed to perform ${humanizeStatus(from)} to ${humanizeStatus(to)}.`
+    };
+  }
+
+  const supplied = new Set(providedEvidence.map((item) => item.trim().toLowerCase()));
+  const missing = control.requiredEvidence.filter(
+    (requirement) => !supplied.has(requirement.toLowerCase())
+  );
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      reason: `Missing required evidence: ${missing.join(", ")}.`
+    };
+  }
+
+  return { ok: true, control };
+}
+
 export const statusTone: Record<WorkflowStatus, string> = {
   SUBMITTED: "bg-blue-50 text-blue-700 ring-blue-200",
   SOURCING: "bg-amber-50 text-amber-700 ring-amber-200",
