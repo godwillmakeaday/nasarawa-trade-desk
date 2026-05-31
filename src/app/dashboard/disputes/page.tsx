@@ -1,7 +1,8 @@
-import { Gavel, MessageSquareWarning, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Gavel, MessageSquareWarning, ShieldCheck } from "lucide-react";
 import { DisputeEscalationWorkflow } from "@/components/dashboard/dispute-escalation-workflow";
 import { TransactionAuditLog } from "@/components/dashboard/transaction-audit-log";
 import { WhatsappCommunicationHub } from "@/components/dashboard/whatsapp-communication-hub";
+import { escalateDispute } from "@/app/dashboard/disputes/actions";
 import { disputes } from "@/data/mock";
 
 export default function DisputesPage() {
@@ -38,6 +39,23 @@ export default function DisputesPage() {
                     {dispute.status}
                   </span>
                   <p className="mt-2 text-xs font-bold text-zinc-500">{dispute.age}</p>
+                  <form action={escalateDispute} className="mt-3 grid gap-1.5 md:justify-items-end">
+                    <input name="disputeId" type="hidden" value={dispute.id} />
+                    <input name="currentLevel" type="hidden" value={dispute.level} />
+                    <input
+                      name="note"
+                      type="text"
+                      placeholder="Escalation note"
+                      className="w-full rounded-md border border-zinc-200 px-2 py-1.5 text-xs text-zinc-700 outline-none focus:border-market-clay focus:ring-2 focus:ring-market-clay/15 md:w-52"
+                    />
+                    <button
+                      type="submit"
+                      className="focus-ring inline-flex items-center gap-1 rounded-md bg-market-clay px-3 py-1.5 text-xs font-black text-white"
+                    >
+                      Escalate
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </form>
                 </div>
               </div>
             ))}

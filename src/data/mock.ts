@@ -163,7 +163,8 @@ export const disputes = [
     reason: "Quality mismatch",
     status: "UNDER_REVIEW",
     owner: "Dispute desk",
-    age: "5h"
+    age: "5h",
+    level: "L1" as const
   },
   {
     id: "DSP-1083",
@@ -171,7 +172,8 @@ export const disputes = [
     reason: "Late delivery",
     status: "WAITING_ON_VENDOR",
     owner: "Logistics lead",
-    age: "1d"
+    age: "1d",
+    level: "L2" as const
   }
 ];
 
