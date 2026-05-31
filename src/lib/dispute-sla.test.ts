@@ -2,11 +2,30 @@ import { describe, expect, it } from "vitest";
 import {
   businessHoursBetween,
   canRespondAtLevel,
+  currentEscalationLevel,
   escalationTiers,
   evaluateDisputeSla,
   getEscalationTier,
+  INITIAL_ESCALATION_LEVEL,
   nextEscalationLevel
 } from "@/lib/dispute-sla";
+
+describe("currentEscalationLevel", () => {
+  it("returns the initial tier when there is no escalation history", () => {
+    expect(currentEscalationLevel([])).toBe(INITIAL_ESCALATION_LEVEL);
+    expect(currentEscalationLevel([])).toBe("L1");
+  });
+
+  it("returns the highest level reached, regardless of order", () => {
+    expect(currentEscalationLevel(["L2"])).toBe("L2");
+    expect(currentEscalationLevel(["L2", "L3"])).toBe("L3");
+    expect(currentEscalationLevel(["L3", "L2"])).toBe("L3");
+  });
+
+  it("is unaffected by duplicate or lower entries", () => {
+    expect(currentEscalationLevel(["L2", "L1", "L2"])).toBe("L2");
+  });
+});
 
 describe("escalation ladder", () => {
   it("defines L1, L2, L3 in ascending SLA order", () => {

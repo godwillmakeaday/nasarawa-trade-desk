@@ -154,6 +154,73 @@ export const transitionControls: TransitionControl[] = [
     allowedRoles: ["CUSTOMER", "ADMIN", "SUPER_ADMIN"],
     requiredEvidence: ["customer confirmation or closed dispute window"],
     auditAction: "ORDER_CLOSED"
+  },
+  // Cancellation branches. Each pre-payment status can be cancelled, but only by
+  // a role with a stake in that stage — never silently by anyone.
+  {
+    from: "SUBMITTED",
+    to: "CANCELLED",
+    allowedRoles: ["CUSTOMER", "PROCUREMENT_OFFICER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["cancellation reason"],
+    auditAction: "REQUEST_CANCELLED"
+  },
+  {
+    from: "SOURCING",
+    to: "CANCELLED",
+    allowedRoles: ["PROCUREMENT_OFFICER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["cancellation reason"],
+    auditAction: "REQUEST_CANCELLED"
+  },
+  {
+    from: "QUOTED",
+    to: "CANCELLED",
+    allowedRoles: ["CUSTOMER", "PROCUREMENT_OFFICER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["cancellation reason"],
+    auditAction: "REQUEST_CANCELLED"
+  },
+  {
+    from: "AWAITING_PAYMENT",
+    to: "CANCELLED",
+    allowedRoles: ["CUSTOMER", "FINANCE_OFFICER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["cancellation reason"],
+    auditAction: "REQUEST_CANCELLED"
+  },
+  // Dispute branches. Raising a dispute freezes the order and must be attributed
+  // to a role involved at that stage.
+  {
+    from: "PROCUREMENT_STARTED",
+    to: "DISPUTED",
+    allowedRoles: ["PROCUREMENT_OFFICER", "DISPUTE_MANAGER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["dispute reason"],
+    auditAction: "DISPUTE_RAISED"
+  },
+  {
+    from: "QUALITY_CHECK",
+    to: "DISPUTED",
+    allowedRoles: ["PROCUREMENT_OFFICER", "DISPUTE_MANAGER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["dispute reason"],
+    auditAction: "DISPUTE_RAISED"
+  },
+  {
+    from: "IN_TRANSIT",
+    to: "DISPUTED",
+    allowedRoles: ["CUSTOMER", "LOGISTICS_OFFICER", "DISPUTE_MANAGER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["dispute reason"],
+    auditAction: "DISPUTE_RAISED"
+  },
+  {
+    from: "DELIVERED",
+    to: "DISPUTED",
+    allowedRoles: ["CUSTOMER", "LOGISTICS_OFFICER", "DISPUTE_MANAGER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["dispute reason"],
+    auditAction: "DISPUTE_RAISED"
+  },
+  {
+    from: "DISPUTED",
+    to: "COMPLETED",
+    allowedRoles: ["DISPUTE_MANAGER", "ADMIN", "SUPER_ADMIN"],
+    requiredEvidence: ["resolution decision"],
+    auditAction: "DISPUTE_RESOLVED"
   }
 ];
 

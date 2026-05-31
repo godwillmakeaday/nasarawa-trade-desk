@@ -74,6 +74,9 @@ export function parsePaystackEvent(rawBody: string): PaystackEvent | null {
 export function resolvePaymentOutcome(event: PaystackEvent): {
   isPaid: boolean;
   reference: string;
+  currency: string;
+  /** Raw minor-unit amount (kobo) for exact integer comparison. */
+  amountMinor: number;
   /** Paystack reports amounts in kobo (minor units); convert to Naira. */
   amountMajor: number;
 } {
@@ -84,6 +87,25 @@ export function resolvePaymentOutcome(event: PaystackEvent): {
   return {
     isPaid,
     reference: event.data.reference,
+    currency: event.data.currency,
+    amountMinor: event.data.amount,
     amountMajor: event.data.amount / 100
   };
+}
+
+/**
+ * Confirms a verified charge matches what the order actually owes. Paystack
+ * amounts are integer minor units (kobo), so we compare against the expected
+ * major-unit amount scaled to minor units — never trust the charged amount on
+ * its own. Currency must match too.
+ */
+export function paymentMatchesExpectation(
+  outcome: { amountMinor: number; currency: string },
+  expected: { amountMajor: number; currency: string }
+): boolean {
+  const expectedMinor = Math.round(expected.amountMajor * 100);
+  return (
+    outcome.amountMinor === expectedMinor &&
+    outcome.currency.toUpperCase() === expected.currency.toUpperCase()
+  );
 }

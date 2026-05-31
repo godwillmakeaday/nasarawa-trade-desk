@@ -20,12 +20,19 @@ describe("escalationLevelSchema", () => {
 describe("disputeEscalationSchema", () => {
   const valid = {
     disputeId: "dsp_123",
-    currentLevel: "L1",
     note: "Customer unresponsive past SLA; moving to dispute manager."
   };
 
-  it("accepts a complete valid escalation", () => {
+  it("accepts a valid escalation (no client-supplied level)", () => {
     expect(disputeEscalationSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("ignores any client-supplied level field", () => {
+    // The current tier is derived server-side; a level in the payload must not
+    // be trusted, and its presence does not break parsing.
+    const result = disputeEscalationSchema.safeParse({ ...valid, currentLevel: "L3" });
+    expect(result.success).toBe(true);
+    expect(result.success && "currentLevel" in result.data).toBe(false);
   });
 
   it("rejects an empty disputeId", () => {
@@ -37,12 +44,6 @@ describe("disputeEscalationSchema", () => {
   it("rejects a too-short note", () => {
     expect(
       disputeEscalationSchema.safeParse({ ...valid, note: "late" }).success
-    ).toBe(false);
-  });
-
-  it("rejects an invalid level", () => {
-    expect(
-      disputeEscalationSchema.safeParse({ ...valid, currentLevel: "HIGH" }).success
     ).toBe(false);
   });
 });

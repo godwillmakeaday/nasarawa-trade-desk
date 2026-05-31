@@ -38,6 +38,7 @@ export async function updateProcurementRequestStatus(formData: FormData) {
 
   // A no-op status save is allowed; any real move must satisfy the state
   // machine plus the role and evidence gate for that transition.
+  let auditAction: string | undefined;
   if (currentStatus !== nextStatus) {
     const control = getTransitionControl(currentStatus, nextStatus);
 
@@ -58,6 +59,8 @@ export async function updateProcurementRequestStatus(formData: FormData) {
     if (!evaluation.ok) {
       throw new Error(evaluation.reason);
     }
+
+    auditAction = evaluation.control?.auditAction;
   }
 
   await prisma.$transaction([
@@ -67,24 +70,33 @@ export async function updateProcurementRequestStatus(formData: FormData) {
     }),
     prisma.auditTrail.create({
       data: {
-        actorId: request.customerId,
+        // Authentication is not wired yet, so we only know the acting role from
+        // the cookie, not a user id. Record null rather than falsely crediting
+        // the customer; the role and semantic workflow action go in the payload.
+        actorId: null,
         procurementRequestId: request.id,
         action: "STATUS_CHANGE",
         entityType: "ProcurementRequest",
         entityId: request.requestNumber,
         before: { status: currentStatus },
-        after: { status: nextStatus }
+        after: {
+          status: nextStatus,
+          actorRole: role,
+          workflowAction: auditAction ?? null
+        }
       }
     }),
     prisma.transactionLog.create({
       data: {
-        actorId: request.customerId,
+        actorId: null,
         eventType: "REQUEST_STATUS_CHANGED",
         metadata: {
           requestId: request.id,
           requestNumber: request.requestNumber,
           from: currentStatus,
-          to: nextStatus
+          to: nextStatus,
+          actorRole: role,
+          workflowAction: auditAction ?? null
         }
       }
     })

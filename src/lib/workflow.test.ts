@@ -54,8 +54,8 @@ describe("getTransitionControl", () => {
     expect(control?.auditAction).toBe("PAYMENT_CONFIRMED");
   });
 
-  it("returns undefined for a transition without a control", () => {
-    expect(getTransitionControl("SUBMITTED", "CANCELLED")).toBeUndefined();
+  it("returns undefined for a transition that does not exist", () => {
+    expect(getTransitionControl("SUBMITTED", "DELIVERED")).toBeUndefined();
   });
 
   it("only references valid from/to statuses", () => {
@@ -64,6 +64,55 @@ describe("getTransitionControl", () => {
       expect(allStatuses).toContain(control.to);
       expect(canTransition(control.from, control.to)).toBe(true);
     }
+  });
+});
+
+describe("every non-terminal transition is guarded by a control", () => {
+  it("has a TransitionControl for each declared forward transition", () => {
+    // No transition (including CANCELLED/DISPUTED branches) may slip through
+    // evaluateTransition ungated; each must define roles + evidence + audit.
+    for (const [from, targets] of Object.entries(workflowTransitions)) {
+      for (const to of targets) {
+        const control = getTransitionControl(from as never, to);
+        expect(
+          control,
+          `missing control for ${from} -> ${to}`
+        ).toBeDefined();
+        expect(control!.allowedRoles.length).toBeGreaterThan(0);
+        expect(control!.requiredEvidence.length).toBeGreaterThan(0);
+        expect(control!.auditAction).toBeTruthy();
+      }
+    }
+  });
+
+  it("blocks a CANCELLED move by a role with no stake in the stage", () => {
+    const result = evaluateTransition({
+      from: "SOURCING",
+      to: "CANCELLED",
+      role: "LOGISTICS_OFFICER",
+      providedEvidence: ["cancellation reason"]
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("blocks a DISPUTED move with no dispute reason evidence", () => {
+    const result = evaluateTransition({
+      from: "IN_TRANSIT",
+      to: "DISPUTED",
+      role: "CUSTOMER",
+      providedEvidence: []
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("allows a permitted DISPUTED move with evidence", () => {
+    const result = evaluateTransition({
+      from: "DELIVERED",
+      to: "DISPUTED",
+      role: "CUSTOMER",
+      providedEvidence: ["dispute reason"]
+    });
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -146,14 +195,26 @@ describe("evaluateTransition", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("allows control-free transitions (e.g. CANCELLED) without role/evidence", () => {
-    const result = evaluateTransition({
-      from: "SUBMITTED",
-      to: "CANCELLED",
-      role: "CUSTOMER",
-      providedEvidence: []
-    });
-    expect(result.ok).toBe(true);
+  it("now gates the SUBMITTED -> CANCELLED branch on role + evidence", () => {
+    // Previously control-free; a customer may cancel their own SUBMITTED
+    // request, but only with a stated cancellation reason.
+    expect(
+      evaluateTransition({
+        from: "SUBMITTED",
+        to: "CANCELLED",
+        role: "CUSTOMER",
+        providedEvidence: []
+      }).ok
+    ).toBe(false);
+
+    expect(
+      evaluateTransition({
+        from: "SUBMITTED",
+        to: "CANCELLED",
+        role: "CUSTOMER",
+        providedEvidence: ["cancellation reason"]
+      }).ok
+    ).toBe(true);
   });
 
   it("treats SUPER_ADMIN as permitted on every guarded transition", () => {

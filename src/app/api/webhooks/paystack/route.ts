@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logDatabaseError } from "@/lib/database-status";
 import {
   parsePaystackEvent,
+  paymentMatchesExpectation,
   resolvePaymentOutcome,
   verifyPaystackSignature
 } from "@/lib/payment/paystack";
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
   try {
     const payment = await prisma.payment.findUnique({
       where: { providerRef: outcome.reference },
-      select: { id: true, orderId: true, status: true }
+      select: { id: true, orderId: true, status: true, amount: true, currency: true }
     });
 
     if (!payment) {
@@ -53,6 +54,34 @@ export async function POST(request: NextRequest) {
     // Idempotent: a reference already marked PAID is a duplicate delivery.
     if (payment.status === "PAID") {
       return NextResponse.json({ received: true, applied: false, duplicate: true });
+    }
+
+    // Never complete on a successful-but-mismatched charge: the amount and
+    // currency must equal what the order owes. An underpaid or wrong-currency
+    // event is recorded as a failed verification, not a payment.
+    const matches = paymentMatchesExpectation(outcome, {
+      amountMajor: Number(payment.amount),
+      currency: payment.currency
+    });
+
+    if (!matches) {
+      await prisma.transactionLog.create({
+        data: {
+          orderId: payment.orderId,
+          eventType: "PAYMENT_MISMATCH",
+          amount: outcome.amountMajor,
+          providerRef: outcome.reference,
+          metadata: {
+            event: event.event,
+            reference: outcome.reference,
+            chargedCurrency: outcome.currency,
+            chargedMinor: outcome.amountMinor,
+            expectedMajor: Number(payment.amount),
+            expectedCurrency: payment.currency
+          }
+        }
+      });
+      return NextResponse.json({ received: true, applied: false, mismatch: true }, { status: 422 });
     }
 
     await prisma.$transaction([

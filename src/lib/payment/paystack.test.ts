@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computePaystackSignature,
   parsePaystackEvent,
+  paymentMatchesExpectation,
   resolvePaymentOutcome,
   verifyPaystackSignature
 } from "@/lib/payment/paystack";
@@ -104,5 +105,64 @@ describe("resolvePaymentOutcome", () => {
       })
     );
     expect(resolvePaymentOutcome(event!).isPaid).toBe(false);
+  });
+
+  it("exposes the raw minor-unit amount and currency", () => {
+    const event = parsePaystackEvent(
+      JSON.stringify({
+        event: "charge.success",
+        data: { reference: "ref_8", amount: 250000, currency: "NGN", status: "success" }
+      })
+    );
+    const outcome = resolvePaymentOutcome(event!);
+    expect(outcome.amountMinor).toBe(250000);
+    expect(outcome.currency).toBe("NGN");
+  });
+});
+
+describe("paymentMatchesExpectation", () => {
+  it("accepts an exact amount and currency match (naira -> kobo)", () => {
+    expect(
+      paymentMatchesExpectation(
+        { amountMinor: 250000, currency: "NGN" },
+        { amountMajor: 2500, currency: "NGN" }
+      )
+    ).toBe(true);
+  });
+
+  it("rejects an underpaid amount", () => {
+    expect(
+      paymentMatchesExpectation(
+        { amountMinor: 100, currency: "NGN" },
+        { amountMajor: 2500, currency: "NGN" }
+      )
+    ).toBe(false);
+  });
+
+  it("rejects a currency mismatch even when the number matches", () => {
+    expect(
+      paymentMatchesExpectation(
+        { amountMinor: 250000, currency: "USD" },
+        { amountMajor: 2500, currency: "NGN" }
+      )
+    ).toBe(false);
+  });
+
+  it("compares currency case-insensitively", () => {
+    expect(
+      paymentMatchesExpectation(
+        { amountMinor: 250000, currency: "ngn" },
+        { amountMajor: 2500, currency: "NGN" }
+      )
+    ).toBe(true);
+  });
+
+  it("handles fractional expected amounts without float drift", () => {
+    expect(
+      paymentMatchesExpectation(
+        { amountMinor: 2599, currency: "NGN" },
+        { amountMajor: 25.99, currency: "NGN" }
+      )
+    ).toBe(true);
   });
 });

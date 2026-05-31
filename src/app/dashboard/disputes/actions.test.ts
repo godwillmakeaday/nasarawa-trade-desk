@@ -36,19 +36,25 @@ function form(fields: Record<string, string>) {
 
 const validFields = {
   disputeId: "dsp_1",
-  currentLevel: "L1",
   note: "Customer unresponsive past SLA; escalating to dispute manager."
 };
+
+// Helper: a dispute whose current tier is derived from its escalation history.
+// An empty history means the dispute is still at its initial tier (L1).
+function disputeAt(levels: string[]) {
+  return {
+    id: "dsp_1",
+    status: "OPEN",
+    reporterId: "user_1",
+    procurementRequestId: "req_1",
+    escalations: levels.map((level) => ({ level }))
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   resolveActorRoleMock.mockResolvedValue("PROCUREMENT_OFFICER");
-  prismaMock.dispute.findUnique.mockResolvedValue({
-    id: "dsp_1",
-    status: "OPEN",
-    reporterId: "user_1",
-    procurementRequestId: "req_1"
-  });
+  prismaMock.dispute.findUnique.mockResolvedValue(disputeAt([]));
 });
 
 describe("escalateDispute", () => {
@@ -76,11 +82,18 @@ describe("escalateDispute", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
+  it("derives the current tier from history and rejects a disallowed role", async () => {
+    // History reaching L2 means a PROCUREMENT_OFFICER (an L1-only responder)
+    // may no longer act, even though the form carries no level field.
+    prismaMock.dispute.findUnique.mockResolvedValue(disputeAt(["L2"]));
+    await expect(escalateDispute(form(validFields))).rejects.toThrow(/not permitted/);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
   it("refuses to escalate beyond the top tier (L3)", async () => {
     resolveActorRoleMock.mockResolvedValue("ADMIN"); // permitted at L3, so the tier guard is what trips
-    await expect(
-      escalateDispute(form({ ...validFields, currentLevel: "L3" }))
-    ).rejects.toThrow(/highest escalation tier/);
+    prismaMock.dispute.findUnique.mockResolvedValue(disputeAt(["L2", "L3"]));
+    await expect(escalateDispute(form(validFields))).rejects.toThrow(/highest escalation tier/);
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
@@ -97,9 +110,10 @@ describe("escalateDispute", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it("allows an admin to escalate at any tier", async () => {
+  it("allows an admin to escalate from a higher tier", async () => {
     resolveActorRoleMock.mockResolvedValue("ADMIN");
-    await escalateDispute(form({ ...validFields, currentLevel: "L2" }));
+    prismaMock.dispute.findUnique.mockResolvedValue(disputeAt(["L2"]));
+    await escalateDispute(form(validFields));
     const escalation = prismaMock.disputeEscalation.create.mock.calls[0][0].data;
     expect(escalation.level).toBe("L3");
   });

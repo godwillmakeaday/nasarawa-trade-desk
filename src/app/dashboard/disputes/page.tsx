@@ -41,7 +41,6 @@ export default function DisputesPage() {
                   <p className="mt-2 text-xs font-bold text-zinc-500">{dispute.age}</p>
                   <form action={escalateDispute} className="mt-3 grid gap-1.5 md:justify-items-end">
                     <input name="disputeId" type="hidden" value={dispute.id} />
-                    <input name="currentLevel" type="hidden" value={dispute.level} />
                     <input
                       name="note"
                       type="text"

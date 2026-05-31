@@ -105,7 +105,9 @@ describe("POST /api/webhooks/paystack", () => {
     prismaMock.payment.findUnique.mockResolvedValue({
       id: "pay_1",
       orderId: "ord_1",
-      status: "PAID"
+      status: "PAID",
+      amount: 2500,
+      currency: "NGN"
     });
     const body = successBody();
     const res = await POST(makeRequest(body, sign(body)));
@@ -121,7 +123,9 @@ describe("POST /api/webhooks/paystack", () => {
     prismaMock.payment.findUnique.mockResolvedValue({
       id: "pay_2",
       orderId: "ord_2",
-      status: "INITIATED"
+      status: "INITIATED",
+      amount: 5000, // expected naira, matches 500000 kobo below
+      currency: "NGN"
     });
     const body = successBody("ref_pay_2", 500000);
     const res = await POST(makeRequest(body, sign(body)));
@@ -146,7 +150,9 @@ describe("POST /api/webhooks/paystack", () => {
     prismaMock.payment.findUnique.mockResolvedValue({
       id: "pay_3",
       orderId: "ord_3",
-      status: "INITIATED"
+      status: "INITIATED",
+      amount: 2500,
+      currency: "NGN"
     });
     prismaMock.$transaction.mockRejectedValueOnce(new Error("db down"));
     const body = successBody("ref_pay_3");
@@ -154,5 +160,42 @@ describe("POST /api/webhooks/paystack", () => {
 
     expect(res.status).toBe(500);
     expect(logDatabaseErrorMock).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a signed success whose amount does not match the order", async () => {
+    prismaMock.payment.findUnique.mockResolvedValue({
+      id: "pay_4",
+      orderId: "ord_4",
+      status: "INITIATED",
+      amount: 5000, // order expects 5000 naira...
+      currency: "NGN"
+    });
+    const body = successBody("ref_pay_4", 100); // ...but only 1 naira was charged
+    const res = await POST(makeRequest(body, sign(body)));
+
+    expect(res.status).toBe(422);
+    await expect(res.json()).resolves.toMatchObject({ applied: false, mismatch: true });
+    expect(prismaMock.payment.update).not.toHaveBeenCalled();
+    expect(prismaMock.transactionLog.create).toHaveBeenCalledOnce(); // the mismatch is logged
+    const txArg = prismaMock.transactionLog.create.mock.calls[0][0].data;
+    expect(txArg.eventType).toBe("PAYMENT_MISMATCH");
+  });
+
+  it("rejects a signed success in the wrong currency", async () => {
+    prismaMock.payment.findUnique.mockResolvedValue({
+      id: "pay_5",
+      orderId: "ord_5",
+      status: "INITIATED",
+      amount: 2500,
+      currency: "NGN"
+    });
+    const body = JSON.stringify({
+      event: "charge.success",
+      data: { reference: "ref_pay_5", amount: 250000, currency: "USD", status: "success" }
+    });
+    const res = await POST(makeRequest(body, sign(body)));
+
+    expect(res.status).toBe(422);
+    expect(prismaMock.payment.update).not.toHaveBeenCalled();
   });
 });

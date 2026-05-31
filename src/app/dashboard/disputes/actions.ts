@@ -5,22 +5,24 @@ import { resolveActorRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   canRespondAtLevel,
+  currentEscalationLevel,
   getEscalationTier,
   nextEscalationLevel
 } from "@/lib/dispute-sla";
+import type { EscalationLevel } from "@/lib/dispute-sla";
 import { disputeEscalationSchema } from "@/lib/validators/dispute";
 
 /**
  * Escalates a dispute from its current tier to the next, enforcing the same
  * three invariants as the workflow guard: the move is valid (a higher tier
  * exists), the actor's role may respond at the current tier, and an explanatory
- * note is supplied. Writes the escalation record plus an audit and transaction
- * entry in a single transaction.
+ * note is supplied. The current tier is derived from the dispute's escalation
+ * history server-side — never trusted from the client. Writes the escalation
+ * record plus an audit and transaction entry in a single transaction.
  */
 export async function escalateDispute(formData: FormData) {
   const parsed = disputeEscalationSchema.safeParse({
     disputeId: formData.get("disputeId"),
-    currentLevel: formData.get("currentLevel"),
     note: formData.get("note")
   });
 
@@ -32,30 +34,37 @@ export async function escalateDispute(formData: FormData) {
 
   const role = await resolveActorRole();
 
-  if (!canRespondAtLevel(parsed.data.currentLevel, role)) {
-    throw new Error(
-      `${role} is not permitted to act on a ${parsed.data.currentLevel} dispute.`
-    );
-  }
-
-  const nextLevel = nextEscalationLevel(parsed.data.currentLevel);
-
-  if (!nextLevel) {
-    throw new Error("This dispute is already at the highest escalation tier.");
-  }
-
   const dispute = await prisma.dispute.findUnique({
     where: { id: parsed.data.disputeId },
     select: {
       id: true,
       status: true,
       reporterId: true,
-      procurementRequestId: true
+      procurementRequestId: true,
+      escalations: { select: { level: true } }
     }
   });
 
   if (!dispute) {
     throw new Error("Dispute was not found.");
+  }
+
+  // Authoritative current tier: the highest level the dispute has reached, read
+  // from its own escalation history rather than any client-supplied value.
+  const currentLevel = currentEscalationLevel(
+    dispute.escalations.map((entry) => entry.level as EscalationLevel)
+  );
+
+  if (!canRespondAtLevel(currentLevel, role)) {
+    throw new Error(
+      `${role} is not permitted to act on a ${currentLevel} dispute.`
+    );
+  }
+
+  const nextLevel = nextEscalationLevel(currentLevel);
+
+  if (!nextLevel) {
+    throw new Error("This dispute is already at the highest escalation tier.");
   }
 
   const tier = getEscalationTier(nextLevel);
@@ -65,6 +74,9 @@ export async function escalateDispute(formData: FormData) {
     prisma.disputeEscalation.create({
       data: {
         disputeId: dispute.id,
+        // Auth is not wired yet: we know the acting role from the cookie but not
+        // a user id, so leave actorId null rather than crediting the reporter.
+        actorId: null,
         level: nextLevel,
         trigger: tier.trigger,
         sla,
@@ -82,8 +94,13 @@ export async function escalateDispute(formData: FormData) {
         action: "STATUS_CHANGE",
         entityType: "Dispute",
         entityId: dispute.id,
-        before: { status: dispute.status, level: parsed.data.currentLevel },
-        after: { status: "ESCALATED", level: nextLevel, note: parsed.data.note }
+        before: { status: dispute.status, level: currentLevel },
+        after: {
+          status: "ESCALATED",
+          level: nextLevel,
+          note: parsed.data.note,
+          actorRole: role
+        }
       }
     }),
     prisma.transactionLog.create({
@@ -91,9 +108,10 @@ export async function escalateDispute(formData: FormData) {
         eventType: "DISPUTE_ESCALATED",
         metadata: {
           disputeId: dispute.id,
-          from: parsed.data.currentLevel,
+          from: currentLevel,
           to: nextLevel,
-          sla
+          sla,
+          actorRole: role
         }
       }
     })

@@ -48,6 +48,24 @@ export const escalationTiers: EscalationTier[] = [
 
 const escalationOrder: EscalationLevel[] = ["L1", "L2", "L3"];
 
+/** The tier every dispute starts at before any escalation has been recorded. */
+export const INITIAL_ESCALATION_LEVEL: EscalationLevel = "L1";
+
+/**
+ * Derives a dispute's current tier from its escalation history — the highest
+ * level any recorded escalation reached, or the initial tier when there are
+ * none. This is the authoritative current level; never trust a client value.
+ */
+export function currentEscalationLevel(
+  escalationLevels: EscalationLevel[]
+): EscalationLevel {
+  return escalationLevels.reduce<EscalationLevel>((highest, level) => {
+    return escalationOrder.indexOf(level) > escalationOrder.indexOf(highest)
+      ? level
+      : highest;
+  }, INITIAL_ESCALATION_LEVEL);
+}
+
 export function getEscalationTier(level: EscalationLevel): EscalationTier {
   const tier = escalationTiers.find((item) => item.level === level);
   if (!tier) {
