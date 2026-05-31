@@ -688,30 +688,6 @@ export const enterpriseAuditEvents = [
   }
 ];
 
-export const disputeEscalationWorkflow = [
-  {
-    level: "L1",
-    owner: "Customer desk",
-    trigger: "Late update, missing document, or customer clarification",
-    sla: "2 business hours",
-    action: "Respond on WhatsApp and attach note to order"
-  },
-  {
-    level: "L2",
-    owner: "Dispute manager",
-    trigger: "Quality mismatch, missing item, price variance, or delivery exception",
-    sla: "8 business hours",
-    action: "Freeze completion, gather evidence, and recommend replacement, refund, or acceptance"
-  },
-  {
-    level: "L3",
-    owner: "Admin and finance",
-    trigger: "Refund exposure, supplier breach, suspected fraud, or unresolved carrier issue",
-    sla: "24 business hours",
-    action: "Approve financial remedy and write final audit decision"
-  }
-];
-
 export const whatsappThreads = [
   {
     order: "NRP-2026-0418",
