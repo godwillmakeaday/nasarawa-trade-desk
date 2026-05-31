@@ -133,14 +133,22 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-const BUSINESS_DAY_START_HOUR = 8; // 08:00
-const BUSINESS_DAY_END_HOUR = 17; // 17:00
+const BUSINESS_DAY_START_HOUR = 8; // 08:00 WAT
+const BUSINESS_DAY_END_HOUR = 17; // 17:00 WAT
 const BUSINESS_HOURS_PER_DAY = BUSINESS_DAY_END_HOUR - BUSINESS_DAY_START_HOUR;
+
+// Nasarawa operates in West Africa Time (UTC+1), which Nigeria observes
+// year-round with no daylight saving. We interpret the 08:00–17:00 working
+// window and weekday boundaries in WAT regardless of the server's timezone
+// (Vercel runs UTC) by shifting instants by this fixed offset and reading them
+// with UTC accessors. Elapsed-millisecond math is offset-invariant, so only the
+// wall-clock boundaries need the shift.
+const WAT_OFFSET_MS = 60 * 60 * 1000;
 
 /**
  * Counts business hours between two instants, Monday–Friday within an
- * 08:00–17:00 working window. Time outside the window or on weekends does not
- * accrue against an SLA. Returns 0 when `end` precedes `start`.
+ * 08:00–17:00 WAT working window. Time outside the window or on weekends does
+ * not accrue against an SLA. Returns 0 when `end` precedes `start`.
  */
 export function businessHoursBetween(start: Date, end: Date): number {
   if (end <= start) {
@@ -148,28 +156,30 @@ export function businessHoursBetween(start: Date, end: Date): number {
   }
 
   let total = 0;
-  const cursor = new Date(start);
+  // Shift into "WAT wall-clock" space so getUTC*/setUTC* read WAT fields.
+  const cursor = new Date(start.getTime() + WAT_OFFSET_MS);
+  const watEnd = new Date(end.getTime() + WAT_OFFSET_MS);
 
-  while (cursor < end) {
-    const day = cursor.getDay(); // 0 = Sunday, 6 = Saturday
+  while (cursor < watEnd) {
+    const day = cursor.getUTCDay(); // 0 = Sunday, 6 = Saturday (in WAT)
     const isWeekday = day >= 1 && day <= 5;
 
     if (isWeekday) {
       const dayStart = new Date(cursor);
-      dayStart.setHours(BUSINESS_DAY_START_HOUR, 0, 0, 0);
+      dayStart.setUTCHours(BUSINESS_DAY_START_HOUR, 0, 0, 0);
       const dayEnd = new Date(cursor);
-      dayEnd.setHours(BUSINESS_DAY_END_HOUR, 0, 0, 0);
+      dayEnd.setUTCHours(BUSINESS_DAY_END_HOUR, 0, 0, 0);
 
       const windowStart = cursor > dayStart ? cursor : dayStart;
-      const windowEnd = end < dayEnd ? end : dayEnd;
+      const windowEnd = watEnd < dayEnd ? watEnd : dayEnd;
 
       if (windowEnd > windowStart) {
         total += (windowEnd.getTime() - windowStart.getTime()) / (1000 * 60 * 60);
       }
     }
 
-    // Advance to the start of the next calendar day.
-    cursor.setHours(24, 0, 0, 0);
+    // Advance to the start of the next WAT calendar day.
+    cursor.setUTCHours(24, 0, 0, 0);
   }
 
   return Math.min(total, BUSINESS_HOURS_PER_DAY * 7 * 520); // guard against pathological ranges

@@ -103,37 +103,57 @@ describe("evaluateDisputeSla", () => {
 });
 
 describe("businessHoursBetween", () => {
+  // All instants use an explicit +01:00 (WAT) offset so the test is independent
+  // of the runner's timezone and asserts the WAT working-window semantics.
   it("returns 0 when end is at or before start", () => {
-    const t = new Date("2026-06-01T10:00:00");
+    const t = new Date("2026-06-01T10:00:00+01:00");
     expect(businessHoursBetween(t, t)).toBe(0);
-    expect(businessHoursBetween(t, new Date("2026-06-01T09:00:00"))).toBe(0);
+    expect(businessHoursBetween(t, new Date("2026-06-01T09:00:00+01:00"))).toBe(0);
   });
 
   it("counts hours within a single business day", () => {
-    // Monday 2026-06-01, 09:00 -> 13:00 = 4 working hours
-    const start = new Date("2026-06-01T09:00:00");
-    const end = new Date("2026-06-01T13:00:00");
+    // Monday 2026-06-01, 09:00 -> 13:00 WAT = 4 working hours
+    const start = new Date("2026-06-01T09:00:00+01:00");
+    const end = new Date("2026-06-01T13:00:00+01:00");
     expect(businessHoursBetween(start, end)).toBeCloseTo(4, 5);
   });
 
-  it("ignores time before 08:00 and after 17:00", () => {
-    // Monday 06:00 -> 20:00 should clamp to the 08:00-17:00 window = 9 hours
-    const start = new Date("2026-06-01T06:00:00");
-    const end = new Date("2026-06-01T20:00:00");
+  it("ignores time before 08:00 and after 17:00 WAT", () => {
+    // Monday 06:00 -> 20:00 WAT should clamp to the 08:00-17:00 window = 9 hours
+    const start = new Date("2026-06-01T06:00:00+01:00");
+    const end = new Date("2026-06-01T20:00:00+01:00");
     expect(businessHoursBetween(start, end)).toBeCloseTo(9, 5);
   });
 
   it("skips weekends", () => {
-    // Friday 16:00 -> Monday 09:00: 1h Friday + 1h Monday = 2 working hours
-    const friday = new Date("2026-06-05T16:00:00");
-    const monday = new Date("2026-06-08T09:00:00");
+    // Friday 16:00 -> Monday 09:00 WAT: 1h Friday + 1h Monday = 2 working hours
+    const friday = new Date("2026-06-05T16:00:00+01:00");
+    const monday = new Date("2026-06-08T09:00:00+01:00");
     expect(businessHoursBetween(friday, monday)).toBeCloseTo(2, 5);
   });
 
   it("accumulates across multiple weekdays", () => {
-    // Mon 16:00 -> Wed 09:00: 1h Mon + 9h Tue + 1h Wed = 11 working hours
-    const start = new Date("2026-06-01T16:00:00");
-    const end = new Date("2026-06-03T09:00:00");
+    // Mon 16:00 -> Wed 09:00 WAT: 1h Mon + 9h Tue + 1h Wed = 11 working hours
+    const start = new Date("2026-06-01T16:00:00+01:00");
+    const end = new Date("2026-06-03T09:00:00+01:00");
     expect(businessHoursBetween(start, end)).toBeCloseTo(11, 5);
+  });
+
+  it("uses WAT (not UTC) for the working-window boundaries", () => {
+    // 16:30 -> 17:30 WAT on a Monday: only the half hour to 17:00 WAT counts.
+    // In UTC these instants are 15:30 -> 16:30, which a UTC-based window would
+    // wrongly count as a full in-window hour. Asserts the WAT shift is applied.
+    const start = new Date("2026-06-01T16:30:00+01:00");
+    const end = new Date("2026-06-01T17:30:00+01:00");
+    expect(businessHoursBetween(start, end)).toBeCloseTo(0.5, 5);
+  });
+
+  it("classifies a Monday-just-after-midnight WAT instant as a weekday", () => {
+    // Monday 00:30 WAT is Sunday 23:30 UTC. A UTC-based weekday check would
+    // treat the surrounding window as Sunday (weekend). 08:00 -> 12:00 WAT
+    // Monday should yield 4 hours.
+    const start = new Date("2026-06-01T08:00:00+01:00");
+    const end = new Date("2026-06-01T12:00:00+01:00");
+    expect(businessHoursBetween(start, end)).toBeCloseTo(4, 5);
   });
 });
