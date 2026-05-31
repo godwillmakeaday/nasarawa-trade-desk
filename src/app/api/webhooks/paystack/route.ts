@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { logDatabaseError } from "@/lib/database-status";
 import {
-  parsePaystackEvent,
+  parsePaystackEventFromJson,
   paymentMatchesExpectation,
   resolvePaymentOutcome,
   verifyPaystackSignature
@@ -26,7 +27,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
 
-  const event = parsePaystackEvent(rawBody);
+  // Parse the verified body once; reuse the parsed value for both validation
+  // and the stored rawProviderEvent so the two cannot diverge.
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ error: "Unrecognized event payload." }, { status: 400 });
+  }
+
+  const event = parsePaystackEventFromJson(parsedBody);
 
   if (!event) {
     return NextResponse.json({ error: "Unrecognized event payload." }, { status: 400 });
@@ -90,7 +100,7 @@ export async function POST(request: NextRequest) {
         data: {
           status: "PAID",
           paidAt: new Date(),
-          rawProviderEvent: JSON.parse(rawBody)
+          rawProviderEvent: parsedBody as Prisma.InputJsonValue
         }
       }),
       prisma.transactionLog.create({

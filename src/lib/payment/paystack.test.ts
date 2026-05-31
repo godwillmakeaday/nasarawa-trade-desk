@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computePaystackSignature,
   parsePaystackEvent,
+  parsePaystackEventFromJson,
   paymentMatchesExpectation,
   resolvePaymentOutcome,
   verifyPaystackSignature
@@ -70,6 +71,16 @@ describe("parsePaystackEvent", () => {
     expect(
       parsePaystackEvent(JSON.stringify({ event: "charge.success", data: { amount: 100 } }))
     ).toBeNull();
+  });
+
+  it("validates an already-parsed object via parsePaystackEventFromJson", () => {
+    const obj = {
+      event: "charge.success",
+      data: { reference: "ref_10", amount: 250000, currency: "NGN", status: "success" }
+    };
+    const event = parsePaystackEventFromJson(obj);
+    expect(event?.data.reference).toBe("ref_10");
+    expect(parsePaystackEventFromJson({ bogus: true })).toBeNull();
   });
 });
 

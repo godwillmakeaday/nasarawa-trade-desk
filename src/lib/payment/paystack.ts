@@ -51,8 +51,18 @@ export const paystackEventSchema = z.object({
 export type PaystackEvent = z.infer<typeof paystackEventSchema>;
 
 /**
- * Parses an already-verified webhook body into a typed event. Returns null when
+ * Validates an already-parsed JSON value into a typed event. Returns null when
  * the shape is unrecognized so callers can reject with a 400 rather than throw.
+ * Use this when the caller has already parsed the body (to avoid parsing twice).
+ */
+export function parsePaystackEventFromJson(json: unknown): PaystackEvent | null {
+  const parsed = paystackEventSchema.safeParse(json);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * Parses an already-verified webhook body into a typed event. Returns null when
+ * the body is not valid JSON or the shape is unrecognized.
  */
 export function parsePaystackEvent(rawBody: string): PaystackEvent | null {
   let json: unknown;
@@ -62,8 +72,7 @@ export function parsePaystackEvent(rawBody: string): PaystackEvent | null {
     return null;
   }
 
-  const parsed = paystackEventSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
+  return parsePaystackEventFromJson(json);
 }
 
 /**

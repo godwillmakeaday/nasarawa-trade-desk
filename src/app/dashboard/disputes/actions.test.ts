@@ -21,7 +21,7 @@ const { prismaMock, resolveActorRoleMock, revalidatePathMock } = vi.hoisted(() =
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
-vi.mock("@/lib/auth", () => ({ resolveActorRole: resolveActorRoleMock }));
+vi.mock("@/lib/auth-session", () => ({ resolveActorRole: resolveActorRoleMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 import { escalateDispute } from "@/app/dashboard/disputes/actions";

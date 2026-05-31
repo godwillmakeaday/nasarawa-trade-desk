@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requestStatusSchema } from "@/lib/validators/procurement-request";
 import { evaluateTransition } from "@/lib/workflow";
-import { resolveActorRole } from "@/lib/auth";
+import { resolveActorRole } from "@/lib/auth-session";
+import { buildAuditEntries } from "@/lib/audit";
 import type { WorkflowStatus } from "@/types";
 
 export async function updateProcurementRequestStatus(formData: FormData) {
@@ -68,37 +69,25 @@ export async function updateProcurementRequestStatus(formData: FormData) {
       where: { id: request.id },
       data: { status: nextStatus }
     }),
-    prisma.auditTrail.create({
-      data: {
-        // Authentication is not wired yet, so we only know the acting role from
-        // the cookie, not a user id. Record null rather than falsely crediting
-        // the customer; the role and semantic workflow action go in the payload.
-        actorId: null,
-        procurementRequestId: request.id,
-        action: "STATUS_CHANGE",
-        entityType: "ProcurementRequest",
-        entityId: request.requestNumber,
-        before: { status: currentStatus },
-        after: {
-          status: nextStatus,
-          actorRole: role,
-          workflowAction: auditAction ?? null,
-          evidence: providedEvidence
-        }
-      }
-    }),
-    prisma.transactionLog.create({
-      data: {
-        actorId: null,
-        eventType: "REQUEST_STATUS_CHANGED",
-        metadata: {
-          requestId: request.id,
-          requestNumber: request.requestNumber,
-          from: currentStatus,
-          to: nextStatus,
-          actorRole: role,
-          workflowAction: auditAction ?? null
-        }
+    ...buildAuditEntries(prisma, {
+      action: "STATUS_CHANGE",
+      entityType: "ProcurementRequest",
+      entityId: request.requestNumber,
+      actorRole: role,
+      eventType: "REQUEST_STATUS_CHANGED",
+      procurementRequestId: request.id,
+      before: { status: currentStatus },
+      after: {
+        status: nextStatus,
+        workflowAction: auditAction ?? null,
+        evidence: providedEvidence
+      },
+      metadata: {
+        requestId: request.id,
+        requestNumber: request.requestNumber,
+        from: currentStatus,
+        to: nextStatus,
+        workflowAction: auditAction ?? null
       }
     })
   ]);

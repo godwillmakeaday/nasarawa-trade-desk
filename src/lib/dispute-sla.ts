@@ -1,6 +1,11 @@
 import type { UserRole } from "@/types";
 
-export type EscalationLevel = "L1" | "L2" | "L3";
+// Single source of truth for the escalation tiers, in ascending severity. The
+// EscalationLevel type and the Zod enum (validators/dispute.ts) are both derived
+// from this tuple so the levels cannot drift across files.
+export const escalationOrder = ["L1", "L2", "L3"] as const;
+
+export type EscalationLevel = (typeof escalationOrder)[number];
 
 export type EscalationTier = {
   level: EscalationLevel;
@@ -46,10 +51,8 @@ export const escalationTiers: EscalationTier[] = [
   }
 ];
 
-const escalationOrder: EscalationLevel[] = ["L1", "L2", "L3"];
-
 /** The tier every dispute starts at before any escalation has been recorded. */
-export const INITIAL_ESCALATION_LEVEL: EscalationLevel = "L1";
+export const INITIAL_ESCALATION_LEVEL: EscalationLevel = escalationOrder[0];
 
 /**
  * Derives a dispute's current tier from its escalation history — the highest

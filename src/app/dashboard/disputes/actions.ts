@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { resolveActorRole } from "@/lib/auth";
+import { resolveActorRole } from "@/lib/auth-session";
+import { buildAuditEntries } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import {
   canRespondAtLevel,
@@ -88,31 +89,24 @@ export async function escalateDispute(formData: FormData) {
       where: { id: dispute.id },
       data: { status: "ESCALATED" }
     }),
-    prisma.auditTrail.create({
-      data: {
-        procurementRequestId: dispute.procurementRequestId,
-        action: "STATUS_CHANGE",
-        entityType: "Dispute",
-        entityId: dispute.id,
-        before: { status: dispute.status, level: currentLevel },
-        after: {
-          status: "ESCALATED",
-          level: nextLevel,
-          note: parsed.data.note,
-          actorRole: role
-        }
-      }
-    }),
-    prisma.transactionLog.create({
-      data: {
-        eventType: "DISPUTE_ESCALATED",
-        metadata: {
-          disputeId: dispute.id,
-          from: currentLevel,
-          to: nextLevel,
-          sla,
-          actorRole: role
-        }
+    ...buildAuditEntries(prisma, {
+      action: "STATUS_CHANGE",
+      entityType: "Dispute",
+      entityId: dispute.id,
+      actorRole: role,
+      eventType: "DISPUTE_ESCALATED",
+      procurementRequestId: dispute.procurementRequestId,
+      before: { status: dispute.status, level: currentLevel },
+      after: {
+        status: "ESCALATED",
+        level: nextLevel,
+        note: parsed.data.note
+      },
+      metadata: {
+        disputeId: dispute.id,
+        from: currentLevel,
+        to: nextLevel,
+        sla
       }
     })
   ]);
