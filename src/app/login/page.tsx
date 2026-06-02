@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { LockKeyhole } from "lucide-react";
 import { SiteHeader } from "@/components/site/header";
+import { LoginForm } from "@/components/site/login-form";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+
   return (
     <>
       <SiteHeader />
@@ -14,30 +21,7 @@ export default function LoginPage() {
             Access customer requests, quotations, payments, tracking, disputes, and admin workspaces.
           </p>
 
-          <form className="mt-6 grid gap-4">
-            <label className="grid gap-2">
-              <span className="text-sm font-bold text-zinc-700">Email address</span>
-              <input
-                className="rounded-md border border-zinc-200 px-3 py-3 text-sm outline-none focus:border-market-green focus:ring-2 focus:ring-market-green/15"
-                placeholder="name@example.com"
-                type="email"
-              />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-bold text-zinc-700">Password</span>
-              <input
-                className="rounded-md border border-zinc-200 px-3 py-3 text-sm outline-none focus:border-market-green focus:ring-2 focus:ring-market-green/15"
-                placeholder="Enter password"
-                type="password"
-              />
-            </label>
-            <button
-              className="focus-ring rounded-md bg-market-green px-4 py-3 text-sm font-black text-white"
-              type="button"
-            >
-              Continue
-            </button>
-          </form>
+          <LoginForm next={next} />
 
           <p className="mt-5 text-sm font-semibold text-zinc-600">
             New buyer?{" "}
