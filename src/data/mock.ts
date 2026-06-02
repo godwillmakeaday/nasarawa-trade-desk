@@ -163,7 +163,8 @@ export const disputes = [
     reason: "Quality mismatch",
     status: "UNDER_REVIEW",
     owner: "Dispute desk",
-    age: "5h"
+    age: "5h",
+    level: "L1" as const
   },
   {
     id: "DSP-1083",
@@ -171,7 +172,8 @@ export const disputes = [
     reason: "Late delivery",
     status: "WAITING_ON_VENDOR",
     owner: "Logistics lead",
-    age: "1d"
+    age: "1d",
+    level: "L2" as const
   }
 ];
 
@@ -685,30 +687,6 @@ export const enterpriseAuditEvents = [
     source: "whatsapp_triage",
     ip: "102.89.41.09",
     time: "May 18, 15:28"
-  }
-];
-
-export const disputeEscalationWorkflow = [
-  {
-    level: "L1",
-    owner: "Customer desk",
-    trigger: "Late update, missing document, or customer clarification",
-    sla: "2 business hours",
-    action: "Respond on WhatsApp and attach note to order"
-  },
-  {
-    level: "L2",
-    owner: "Dispute manager",
-    trigger: "Quality mismatch, missing item, price variance, or delivery exception",
-    sla: "8 business hours",
-    action: "Freeze completion, gather evidence, and recommend replacement, refund, or acceptance"
-  },
-  {
-    level: "L3",
-    owner: "Admin and finance",
-    trigger: "Refund exposure, supplier breach, suspected fraud, or unresolved carrier issue",
-    sla: "24 business hours",
-    action: "Approve financial remedy and write final audit decision"
   }
 ];
 

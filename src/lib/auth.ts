@@ -1,5 +1,9 @@
 import type { UserRole } from "@/types";
 
+// This module must stay free of server-only APIs (e.g. next/headers): it is
+// imported by middleware.ts, which runs in the Edge runtime. Cookie/session
+// reads live in auth-session.ts instead.
+
 export const roleLabels: Record<UserRole, string> = {
   CUSTOMER: "Customer",
   PROCUREMENT_OFFICER: "Procurement officer",
@@ -9,6 +13,15 @@ export const roleLabels: Record<UserRole, string> = {
   ADMIN: "Admin",
   SUPER_ADMIN: "Super admin"
 };
+
+// Single source of truth for the role list, derived from roleLabels. Because
+// roleLabels is a Record<UserRole, string>, the type checker forces it to stay
+// complete when the UserRole union changes — so this list cannot go stale.
+export const userRoles = Object.keys(roleLabels) as UserRole[];
+
+export function isUserRole(value: unknown): value is UserRole {
+  return typeof value === "string" && (userRoles as string[]).includes(value);
+}
 
 export const routeAccess: Array<{
   pattern: string;

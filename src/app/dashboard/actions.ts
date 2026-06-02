@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requestStatusSchema } from "@/lib/validators/procurement-request";
-import { canTransition, humanizeStatus } from "@/lib/workflow";
+import { evaluateTransition } from "@/lib/workflow";
+import { resolveActorRole } from "@/lib/auth-session";
+import { buildAuditEntries } from "@/lib/audit";
 import type { WorkflowStatus } from "@/types";
 
 export async function updateProcurementRequestStatus(formData: FormData) {
@@ -15,6 +17,8 @@ export async function updateProcurementRequestStatus(formData: FormData) {
   if (!parsed.success) {
     throw new Error("Invalid status update.");
   }
+
+  const role = await resolveActorRole();
 
   const request = await prisma.procurementRequest.findUnique({
     where: { id: parsed.data.requestId },
@@ -32,13 +36,32 @@ export async function updateProcurementRequestStatus(formData: FormData) {
 
   const currentStatus = request.status as WorkflowStatus;
   const nextStatus = parsed.data.status as WorkflowStatus;
-  const isSameStatus = currentStatus === nextStatus;
-  const isAllowedTransition = canTransition(currentStatus, nextStatus);
 
-  if (!isSameStatus && !isAllowedTransition) {
-    throw new Error(
-      `Cannot move ${humanizeStatus(currentStatus)} directly to ${humanizeStatus(nextStatus)}.`
-    );
+  // A no-op status save is allowed; any real move must satisfy the state
+  // machine plus the role and evidence gate for that transition.
+  let auditAction: string | undefined;
+  let providedEvidence: string[] = [];
+  if (currentStatus !== nextStatus) {
+    // The officer confirms each required evidence item individually: the form
+    // posts one `evidence` field per item actually attached. evaluateTransition
+    // then checks each key against the control's requiredEvidence, so a missing
+    // item is reported by name rather than being blanket-satisfied.
+    providedEvidence = formData
+      .getAll("evidence")
+      .filter((item): item is string => typeof item === "string" && item.length > 0);
+
+    const evaluation = evaluateTransition({
+      from: currentStatus,
+      to: nextStatus,
+      role,
+      providedEvidence
+    });
+
+    if (!evaluation.ok) {
+      throw new Error(evaluation.reason);
+    }
+
+    auditAction = evaluation.control?.auditAction;
   }
 
   await prisma.$transaction([
@@ -46,27 +69,25 @@ export async function updateProcurementRequestStatus(formData: FormData) {
       where: { id: request.id },
       data: { status: nextStatus }
     }),
-    prisma.auditTrail.create({
-      data: {
-        actorId: request.customerId,
-        procurementRequestId: request.id,
-        action: "STATUS_CHANGE",
-        entityType: "ProcurementRequest",
-        entityId: request.requestNumber,
-        before: { status: currentStatus },
-        after: { status: nextStatus }
-      }
-    }),
-    prisma.transactionLog.create({
-      data: {
-        actorId: request.customerId,
-        eventType: "REQUEST_STATUS_CHANGED",
-        metadata: {
-          requestId: request.id,
-          requestNumber: request.requestNumber,
-          from: currentStatus,
-          to: nextStatus
-        }
+    ...buildAuditEntries(prisma, {
+      action: "STATUS_CHANGE",
+      entityType: "ProcurementRequest",
+      entityId: request.requestNumber,
+      actorRole: role,
+      eventType: "REQUEST_STATUS_CHANGED",
+      procurementRequestId: request.id,
+      before: { status: currentStatus },
+      after: {
+        status: nextStatus,
+        workflowAction: auditAction ?? null,
+        evidence: providedEvidence
+      },
+      metadata: {
+        requestId: request.id,
+        requestNumber: request.requestNumber,
+        from: currentStatus,
+        to: nextStatus,
+        workflowAction: auditAction ?? null
       }
     })
   ]);
